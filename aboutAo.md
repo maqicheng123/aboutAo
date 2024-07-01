@@ -77,7 +77,7 @@ aos 命令运行时，其实是你在使用密钥文件向 aos 验证你的身�
 或执行.load命令，加载本地lua代码，发送交易至arweave，将lua代码存储在arweave上
 > .load ~/workspace/token.lua
 
-例：<https://arweave.app/tx/KXynPjuTU5DVGPCbVJPMI6xXZ_5r-9SzH_Gx488NvMo>
+例：<https://arweave.app/tx/lJ8Z42JMJZ-Jy0rlovTf0o4f8Y7BeebSRUV1VbiaWug>
 
 #### 合约交互
 
@@ -86,7 +86,7 @@ aos 命令运行时，其实是你在使用密钥文件向 aos 验证你的身�
 
 send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
-例：<https://arweave.app/tx/m-KVTcxZ_k69xf8PueI5LxpUTkyP-WH3NunjUEZzep4>
+例：<https://arweave.app/tx/haEMgSebi2p-OeDCcElU0Q2AVWpFuTR05q_1GQM5Wr0>
 
 ### AO 单元
 
