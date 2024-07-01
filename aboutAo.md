@@ -92,17 +92,33 @@ send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
 #### MU 单元（Messenger Unit）
 
-根据aos或者aoconnect的请求，mu单元会接收到消息，然后将消息进行签名，最后将消息发送到su单元进行排序。
+介绍：MU 通过 Node Express 服务器实现。信使单元是 ao 的前门，它接收来自外部的所有消息并按序引导给进程
+
+功能：
+
+1. 根据aos或者aoconnect的请求，mu单元会接收到消息，并验证签名，随后将消息发送到su单元进行排序。
+2. 每个进程在处理消息时可以返回一个发件箱，信使单元负责从发件箱中提取这些消息并签名后将它们发送到调度单元进行加工。
 
 ![alt text](image-2.png)
 
 ### SU 单元（Scheduler Unit）
 
-调度单元 - 调度单元负责对消息进行排序，并将这些消息存储在 Arweave 上
+介绍：SU 通过 Rust actix Web 服务器实现。调度单元负责对消息进行排序，并将这些消息存储在 Arweave 上
+
+功能:
+
+1. 接收MU信息并对消息进行排序，并将这些消息存储在 Arweave 上
+2. 为CU提供了端点查询的能力，以获得用于求值的消息的顺序
 
 ![alt text](image-3.png)
 
 ### CU 单元（Compute Unit）
+
+介绍： CU 通过 Fastify 服务器实现。计算单元负责计算，加载二进制模块并管理该模块的内存，以便进程的执行始终在最新的内存上运行
+功能：
+
+1. 向SU索取指定processid的信息，将该进程加载到内存中，并在交互过程中更新进程状态
+2. 将运行结果返回至MU单元
 
 从arweave上加载进程到内存中，并在交互过程中更新进程状态，并将运行结果返回至mu单元
 
@@ -110,9 +126,9 @@ send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
 ### aoconnect 库
 
-aoconnect 库提供了用于生成、评估和与 ao 进程交互的抽象。
+aoconnect 库提供了用于生成、评估和与 ao 进程交互的抽象。aos集成了aoconnect库，也是通过aoconnect库与ao网络进行交互
 
-实例化进程
+connect: 实例化进程
 
 ```js
 
@@ -130,7 +146,9 @@ const { result, results, message, spawn, monitor, unmonitor, dryrun } = connect(
 
 此时会在cu单元中实例化一个进程。该进程在cu单元的内存中运行，可以通过message、dryrun函数与其进行交互。
 
-dryrun
+----
+
+dryrun : 将消息对象发送到特定进程并获取返回的结果对象
 
 ```js
 const result = await dryrun({
@@ -144,7 +162,11 @@ const result = await dryrun({
 console.log(result.Messages[0]);
 ```
 
-message
+该过程不会被保存，这非常适合创建一个读取消息以返回内存的当前值。例如，一个代币的余额 （类似call）
+
+----
+
+message : 向 ao 消息单元 mu 发送消息，以 ao 进程为目标
 
 ```js
   const messageId = await message({
@@ -158,7 +180,10 @@ message
   });
 ```
 
-result
+message是你的应用与 ao 交互的核心方式。消息是输入到一个进程的。消息有五个部分你可以指定，分别是“目标（target）”，“数据（data）”，“标签（tags）”，“锚点（anchor）”，以及最后的消息“签名（signature）”, 此函数可以改变进程的状态。（类似send）
+
+----
+result : 获取结果message运行的结果
 
 ```js
   const _result = await result({
@@ -167,7 +192,7 @@ result
   });
 ```
 
-aos集成了aoconnect库，也是通过aoconnect库与ao网络进行交互
+向 ao 计算单元 cu 读取消息运行的结果
 
 ---
 
