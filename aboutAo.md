@@ -88,7 +88,7 @@ send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
 例：<https://arweave.app/tx/haEMgSebi2p-OeDCcElU0Q2AVWpFuTR05q_1GQM5Wr0>
 
-### AO 单元
+### AO 单元（服务）
 
 #### MU 单元（Messenger Unit）
 
