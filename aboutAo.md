@@ -235,13 +235,13 @@ result : 获取结果message运行的结果
 
 ![alt text](image-1.png)
 
-当使用 aos 构建进程时，你可以添加处理程序(handlers)，可以通过调用 Handlers.add 函数并传递 “name”、“match”函数和“handle”函数来添加这些处理程序。(总结为运行的代码片段)
+当使用 aos 构建进程时，你可以添加处理程序(handlers)，可以通过调用 Handlers.add 函数并传递 “name”、“match”函数和“handle”函数来添加这些处理程序。
 
 ### checkPoint
 
 进程状态一直由交易arweave交易改变，需要引入checkPoint，checkPoint是进程的一个快照，可以用来恢复进程状态。
 
-在cu模块关闭或到达配置的间隔条件时，cu会先arweave发送checkPoint交易，来保存当前进程的状态。
+在cu模块关闭或到达配置的间隔条件时，cu会向arweave发送checkPoint交易，来保存当前进程的状态。
 
 ```js
   tags: [
