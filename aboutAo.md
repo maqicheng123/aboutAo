@@ -32,9 +32,9 @@ ao 计算机是一个单一的、统一的计算环境（单系统映像），�
 
 1. 一条消息从 ao Connect 被发出。 该消息使用 POST 请求发送到 mu 服务。 请求正文包含遵循同一协议的数据，标记为 ao，类型为 Message。
 2. mu 服务处理 POST 请求并将消息转发到 su 服务。 这也是使用具有相同数据协议和消息类型的 POST 请求来完成的。
-3. su 服务似乎与存储消息的称为 Arweave 的存储或数据层进行交互。
-4. 向 cu 服务发出 GET 请求，以根据消息 ID 检索结果。 cu 是一种进程上的对消息求值并可以根据单个消息标识符返回结果的服务。
-5. 向 su 服务发出 GET 请求以检索消息。 此请求查找来自某个进程 ID 的开始结束时间范围是 from到 to 的消息。
+3. su 确保消息正确排序并存储在 Arweave 上。
+4. mu 向 cu 服务发出 GET 请求，以根据消息 ID 检索结果。 cu 是一种进程上的对消息求值并可以根据单个消息标识符返回结果的服务。
+5. cu 向 su 服务发出 GET 请求以检索消息。 此请求查找来自某个进程 ID 的开始结束时间范围是 from到 to 的消息。
 6. 最后一步是推送所有发件箱消息。 它涉及检查结果对象中的消息和新进程生成请求。 根据此检查的结果，可以对每个相关消息或新进程生成请求重复步骤 2、3 和 4。
 
 ## 模块详解
@@ -96,8 +96,8 @@ send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
 功能：
 
-1. 根据aos或者aoconnect的请求，mu单元会接收到消息，并验证签名，随后将消息发送到su单元进行排序。
-2. 每个进程在处理消息时可以返回一个发件箱，信使单元负责从发件箱中提取这些消息并签名后将它们发送到调度单元进行加工。
+1. 根据aos或者aoconnect的请求，mu单元会接收到消息，并验证签名，随后将消息发送到su单元进行排序存储。
+2. 每个进程在处理消息时可以返回一个消息到发件箱，信使单元负责从发件箱中提取这些消息并签名后将它们发送到调度单元进行加工。
 
 ![alt text](image-2.png)
 
@@ -114,13 +114,12 @@ send命令是向指定进程发送交易，交易中包含了对应操作的tags
 
 ### CU 单元（Compute Unit）
 
-介绍： CU 通过 Fastify 服务器实现。计算单元负责计算，加载二进制模块并管理该模块的内存，以便进程的执行始终在最新的内存上运行
+介绍： CU 通过 Node Fastify 服务器实现。计算单元负责计算，加载二进制模块并管理该模块的内存，以便进程的执行始终在最新的内存上运行
+
 功能：
 
 1. 向SU索取指定processid的信息，将该进程加载到内存中，并在交互过程中更新进程状态
 2. 将运行结果返回至MU单元
-
-从arweave上加载进程到内存中，并在交互过程中更新进程状态，并将运行结果返回至mu单元
 
 ![alt text](image-4.png)
 
@@ -228,6 +227,185 @@ result : 获取结果message运行的结果
 ```
 
 消息作为 ao 网络的主要数据协议类型，利用 Arweave 原生的 ANS-104 数据项。消息包含多个字段，包括数据内容、来源、目标以及签名和随机数等加密元素。 接着他们被发给信使单元 (MU) ，以确保它们经过签名，通过调度器单元 (SU) 对它们进行时间戳和排序，然后捆绑并发布到 Arweave。 然后，aoconnect 库从计算单元 (CU) 读取结果，CU 通过处理消息来计算出结果后通过 aoconnect 发回响应，供 aos 等客户端使用。
+
+#### 蓝图（blueprint）
+
+蓝图是预先设计好的模板，可帮助你在 ao 中快速构建。蓝图是入门的绝佳方式，并且可以根据你的需求进行定制。
+
+example:
+
+```lua
+local bint = require('.bint')(256)
+local ao = require('ao')
+--[[
+  This module implements the ao Standard Token Specification.
+
+  Terms:
+    Sender: the wallet or Process that sent the Message
+
+  It will first initialize the internal state, and then attach handlers,
+    according to the ao Standard Token Spec API:
+
+    - Info(): return the token parameters, like Name, Ticker, Logo, and Denomination
+
+    - Balance(Target?: string): return the token balance of the Target. If Target is not provided, the Sender
+        is assumed to be the Target
+
+    - Balances(): return the token balance of all participants
+
+    - Transfer(Target: string, Quantity: number): if the Sender has a sufficient balance, send the specified Quantity
+        to the Target. It will also issue a Credit-Notice to the Target and a Debit-Notice to the Sender
+
+    - Mint(Quantity: number): if the Sender matches the Process Owner, then mint the desired Quantity of tokens, adding
+        them the Processes' balance
+]]
+--
+local json = require('json')
+
+--[[
+     Initialize State
+
+     ao.id is equal to the Process.Id
+   ]]
+--
+if not Balances then Balances = { [ao.id] = tostring(bint(10000 * 1e12)) } end
+
+if Name ~= 'Points Coin' then Name = 'Points Coin' end
+
+if Ticker ~= 'Points' then Ticker = 'PNTS' end
+
+if Denomination ~= 12 then Denomination = 12 end
+
+if not Logo then Logo = 'SBCCXwwecBlDqRLUjb8dYABExTJXLieawf7m2aBJ-KY' end
+
+--[[
+     Add handlers for each incoming Action defined by the ao Standard Token Specification
+   ]]
+--
+
+--[[
+     Info
+   ]]
+--
+Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(msg)
+  ao.send({
+    Target = msg.From,
+    Name = Name,
+    Ticker = Ticker,
+    Logo = Logo,
+    Denomination = tostring(Denomination)
+  })
+end)
+
+--[[
+     Balance
+   ]]
+--
+Handlers.add('balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
+  local bal = '0'
+
+  -- If not Target is provided, then return the Senders balance
+  if (msg.Tags.Target and Balances[msg.Tags.Target]) then
+    bal = Balances[msg.Tags.Target]
+  elseif Balances[msg.From] then
+    bal = Balances[msg.From]
+  end
+
+  ao.send({
+    Target = msg.From,
+    Balance = bal,
+    Ticker = Ticker,
+    Account = msg.Tags.Target or msg.From,
+    Data = bal
+  })
+end)
+
+--[[
+     Balances
+   ]]
+--
+Handlers.add('balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
+  function(msg) ao.send({ Target = msg.From, Data = json.encode(Balances) }) end)
+
+--[[
+     Transfer
+   ]]
+--
+Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
+  assert(type(msg.Recipient) == 'string', 'Recipient is required!')
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
+
+  if not Balances[msg.From] then Balances[msg.From] = "0" end
+  if not Balances[msg.Recipient] then Balances[msg.Recipient] = "0" end
+
+  local qty = bint(msg.Quantity)
+  local balance = bint(Balances[msg.From])
+  if bint.__le(qty, balance) then
+    Balances[msg.From] = tostring(bint.__sub(balance, qty))
+    Balances[msg.Recipient] = tostring(bint.__add(Balances[msg.Recipient], qty))
+
+    --[[
+         Only send the notifications to the Sender and Recipient
+         if the Cast tag is not set on the Transfer message
+       ]]
+    --
+    if not msg.Cast then
+      -- Send Debit-Notice to the Sender
+      ao.send({
+        Target = msg.From,
+        Action = 'Debit-Notice',
+        Recipient = msg.Recipient,
+        Quantity = tostring(qty),
+        Data = Colors.gray .. "You transferred " .. Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+      })
+      -- Send Credit-Notice to the Recipient
+      ao.send({
+        Target = msg.Recipient,
+        Action = 'Credit-Notice',
+        Sender = msg.From,
+        Quantity = tostring(qty),
+        Data = Colors.gray .. "You received " .. Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.Recipient .. Colors.reset
+      })
+    end
+  else
+    ao.send({
+      Target = msg.From,
+      Action = 'Transfer-Error',
+      ['Message-Id'] = msg.Id,
+      Error = 'Insufficient Balance!'
+    })
+  end
+end)
+
+--[[
+    Mint
+   ]]
+--
+Handlers.add('mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function (msg)
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, msg.Quantity), 'Quantity must be greater than zero!')
+
+  if not Balances[ao.id] then Balances[ao.id] = "0" end
+
+  if msg.From == ao.id then
+    -- Add tokens to the token pool, according to Quantity
+    Balances[msg.From] = tostring(bint.__add(Balances[Owner], msg.Quantity))
+    ao.send({
+      Target = msg.From,
+      Data = Colors.gray .. "Successfully minted " .. Colors.blue .. msg.Quantity .. Colors.reset
+    })
+  else
+    ao.send({
+      Target = msg.From,
+      Action = 'Mint-Error',
+      ['Message-Id'] = msg.Id,
+      Error = 'Only the Process Owner can mint new ' .. Ticker .. ' tokens!'
+    })
+  end
+end)
+
+```
 
 #### 进程（process）
 
